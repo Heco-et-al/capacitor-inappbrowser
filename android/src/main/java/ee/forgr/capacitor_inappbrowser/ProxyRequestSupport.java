@@ -44,6 +44,14 @@ final class ProxyRequestSupport {
         "Proxy-Authorization",
         "Referer"
     };
+    /**
+     * Revalidation headers that can make the upstream answer with 304 Not Modified, which
+     * {@link android.webkit.WebResourceResponse#setStatusCodeAndReasonPhrase(int, String)} rejects
+     * (status code must not be in [300, 399]) and crashes the renderer. Scoped intentionally
+     * narrow: {@code If-Match} / {@code If-Unmodified-Since} guard writes (return 412 on mismatch,
+     * not 304) and {@code If-Range} downgrades to a full 200, so they must NOT be stripped here.
+     */
+    private static final String[] CACHE_VALIDATOR_HEADER_NAMES = { "If-None-Match", "If-Modified-Since" };
 
     private ProxyRequestSupport() {}
 
@@ -284,6 +292,23 @@ final class ProxyRequestSupport {
         dropHeaderIgnoreCase(redirectedHeaders, "Content-Type");
         dropHeaderIgnoreCase(redirectedHeaders, "Transfer-Encoding");
         return redirectedHeaders;
+    }
+
+    /**
+     * Returns a copy of {@code headers} with revalidation headers removed
+     * ({@code If-None-Match}, {@code If-Modified-Since}). Used to keep proxied native requests
+     * fresh so the upstream cannot answer with 304, which would crash WebResourceResponse on
+     * Android. Other preconditions ({@code If-Match}, {@code If-Unmodified-Since}, {@code If-Range})
+     * are deliberately preserved because dropping them would change semantics — e.g., turning a
+     * guarded write into an unconditional one.
+     */
+    static Map<String, String> stripCacheValidatorHeaders(Map<String, String> headers) {
+        Map<String, String> copy = new LinkedHashMap<>();
+        if (headers != null) {
+            copy.putAll(headers);
+        }
+        dropHeadersIgnoreCase(copy, CACHE_VALIDATOR_HEADER_NAMES);
+        return copy;
     }
 
     static Map<String, String> prepareOverrideHeaders(Map<String, String> originalHeaders, String requestUrl, String overrideUrl) {

@@ -1470,65 +1470,49 @@ public class InAppBrowserPlugin extends Plugin implements WebViewDialog.Permissi
 
     @PluginMethod
     public void close(PluginCall call) {
-        String targetId = resolveTargetId(call);
-        WebViewDialog dialog = resolveDialog(targetId);
-        if (dialog == null) {
-            // Fallback: try to bring main activity to foreground
-            try {
-                Intent intent = new Intent(getContext(), getBridge().getActivity().getClass());
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                getContext().startActivity(intent);
-                call.resolve();
-            } catch (Exception e) {
-                Log.e("InAppBrowser", "Error bringing main activity to foreground: " + e.getMessage());
-                call.reject("WebView is not initialized and failed to restore main activity");
-            }
-            return;
-        }
+        String specificId = call.getString("id");
 
         this.getActivity().runOnUiThread(
             new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        if (dialog != null) {
-                            String currentUrl = "";
-                            try {
-                                currentUrl = dialog.getUrl();
-                                if (currentUrl == null) {
-                                    currentUrl = "";
-                                }
-                            } catch (Exception e) {
-                                Log.e("InAppBrowser", "Error getting URL before close: " + e.getMessage());
-                                currentUrl = "";
-                            }
+                        boolean closedAny = false;
 
-                            // Notify listeners about the close event
-                            JSObject eventData = new JSObject().put("url", currentUrl);
-                            if (targetId != null) {
-                                eventData.put("id", targetId);
+                        if (specificId != null) {
+                            WebViewDialog dialog = resolveDialog(specificId);
+                            if (dialog != null) {
+                                performClose(dialog, specificId);
+                                closedAny = true;
                             }
-                            notifyListeners("closeEvent", eventData);
-
-                            dialog.dismiss();
-                            if (targetId != null) {
-                                unregisterWebView(targetId);
-                            } else {
-                                webViewDialog = null;
-                            }
-                            call.resolve();
                         } else {
-                            // Secondary fallback inside UI thread
+                            // Close ALL dialogs to ensure a robust closing system
+                            List<String> keys = new ArrayList<>(webViewDialogs.keySet());
+                            for (String key : keys) {
+                                WebViewDialog dialog = webViewDialogs.get(key);
+                                if (dialog != null) {
+                                    performClose(dialog, key);
+                                    closedAny = true;
+                                }
+                            }
+                            if (webViewDialog != null && !webViewDialogs.containsValue(webViewDialog)) {
+                                performClose(webViewDialog, null);
+                                closedAny = true;
+                            }
+                        }
+
+                        if (!closedAny) {
+                            // Fallback: try to bring main activity to foreground
                             try {
                                 Intent intent = new Intent(getContext(), getBridge().getActivity().getClass());
                                 intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                                 getContext().startActivity(intent);
-                                call.resolve();
                             } catch (Exception e) {
-                                Log.e("InAppBrowser", "Error in secondary fallback: " + e.getMessage());
-                                call.reject("WebView is not initialized");
+                                Log.e("InAppBrowser", "Error bringing main activity to foreground: " + e.getMessage());
                             }
                         }
+                        
+                        call.resolve();
                     } catch (Exception e) {
                         Log.e("InAppBrowser", "Error closing WebView: " + e.getMessage());
                         call.reject("Failed to close WebView: " + e.getMessage());
@@ -1536,6 +1520,33 @@ public class InAppBrowserPlugin extends Plugin implements WebViewDialog.Permissi
                 }
             }
         );
+    }
+
+    private void performClose(WebViewDialog dialog, String targetId) {
+        String currentUrl = "";
+        try {
+            currentUrl = dialog.getUrl();
+            if (currentUrl == null) {
+                currentUrl = "";
+            }
+        } catch (Exception e) {
+            Log.e("InAppBrowser", "Error getting URL before close: " + e.getMessage());
+            currentUrl = "";
+        }
+
+        // Notify listeners about the close event
+        JSObject eventData = new JSObject().put("url", currentUrl);
+        if (targetId != null) {
+            eventData.put("id", targetId);
+        }
+        notifyListeners("closeEvent", eventData);
+
+        dialog.dismiss();
+        if (targetId != null) {
+            unregisterWebView(targetId);
+        } else {
+            webViewDialog = null;
+        }
     }
 
     private Bundle getHeaders(PluginCall pluginCall) {

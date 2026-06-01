@@ -4516,7 +4516,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                     return createCanceledResponse();
                                 }
                                 if (proxiedRequest.response != null) {
-                                    return proxiedRequest.response;
+                                    return interceptWebResourceResponseRedirect(proxiedRequest.response, requestContext);
                                 }
                                 if (proxiedRequest.nativeResponse != null) {
                                     directResponseData = proxiedRequest.nativeResponse;
@@ -4552,6 +4552,11 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                     while (true) {
                         NativeProxyRule inboundRule = findMatchingRule(_options.getInboundProxyRules(), requestContext, nativeResponse);
                         if (inboundRule == null || inboundRule.getAction() == NativeProxyRule.Action.CONTINUE) {
+                            String redirectUrl = ProxyRequestSupport.resolveRedirectUrl(requestContext.url, nativeResponse.statusCode, nativeResponse.headers);
+                            if (redirectUrl != null && requestContext.mainFrame && nativeResponse.statusCode != 307 && nativeResponse.statusCode != 308) {
+                                return createHtmlRedirectResponse(redirectUrl);
+                            }
+
                             RedirectReplayResult redirectReplay;
                             try {
                                 redirectReplay = followRedirectForWebView(requestContext, nativeResponse, redirectsFollowed);
@@ -4599,7 +4604,7 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                                     return createCanceledResponse();
                                 }
                                 if (proxiedRequest.response != null) {
-                                    return proxiedRequest.response;
+                                    return interceptWebResourceResponseRedirect(proxiedRequest.response, requestContext);
                                 }
                                 if (proxiedRequest.nativeResponse != null) {
                                     nativeResponse = proxiedRequest.nativeResponse;
@@ -4613,6 +4618,11 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
                         } catch (InterruptedException error) {
                             Thread.currentThread().interrupt();
                             Log.e("InAppBrowserProxy", "Semaphore wait error", error);
+                        }
+
+                        String redirectUrl = ProxyRequestSupport.resolveRedirectUrl(requestContext.url, nativeResponse.statusCode, nativeResponse.headers);
+                        if (redirectUrl != null && requestContext.mainFrame && nativeResponse.statusCode != 307 && nativeResponse.statusCode != 308) {
+                            return createHtmlRedirectResponse(redirectUrl);
                         }
 
                         RedirectReplayResult redirectReplay;
@@ -5473,6 +5483,29 @@ public class WebViewDialog extends Dialog implements ProxyResponseRouting.ProxyR
             }
         }
         return null;
+    }
+
+    private WebResourceResponse interceptWebResourceResponseRedirect(WebResourceResponse response, NativeRequestContext requestContext) {
+        if (response != null && requestContext.mainFrame) {
+            int statusCode = response.getStatusCode();
+            if (ProxyRequestSupport.isFollowableRedirectStatus(statusCode) && statusCode != 307 && statusCode != 308) {
+                String redirectUrl = ProxyRequestSupport.resolveRedirectUrl(requestContext.url, statusCode, response.getResponseHeaders());
+                if (redirectUrl != null) {
+                    return createHtmlRedirectResponse(redirectUrl);
+                }
+            }
+        }
+        return response;
+    }
+
+    private WebResourceResponse createHtmlRedirectResponse(String redirectUrl) {
+        String safeUrl = redirectUrl.replace("'", "\\'");
+        String html = "<!DOCTYPE html><html><head><script>window.location.replace('" + safeUrl + "');</script></head><body></body></html>";
+        InputStream stream = new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8));
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Content-Type", "text/html; charset=utf-8");
+        headers.put("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        return new WebResourceResponse("text/html", "utf-8", 200, "OK", headers, stream);
     }
 
     private WebResourceResponse createCanceledResponse() {

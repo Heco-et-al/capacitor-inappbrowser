@@ -1,6 +1,6 @@
 {
-  "name": "@capgo/capacitor-inappbrowser",
-  "version": "8.6.16",
+  "name": "@heco-et-al/capacitor-inappbrowser",
+  "version": "8.6.17",
   "description": "Capacitor plugin in app browser",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -12,13 +12,16 @@
     "dist/",
     "ios/Sources/",
     "Package.swift",
-    "CapgoCapacitorInappbrowser.podspec"
+    "HecoEtAlCapacitorInappbrowser.podspec"
   ],
   "author": "Martin Donadieu <martin@capgo.app>",
   "license": "MPL-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Cap-go/capacitor-inappbrowser.git"
+    "url": "git+https://github.com/Heco-et-al/capacitor-inappbrowser.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "bugs": {
     "url": "https://github.com/Cap-go/capacitor-inappbrowser/issues"
@@ -32,7 +35,7 @@
   ],
   "scripts": {
     "verify": "bun run verify:ios && bun run verify:android && bun run verify:web",
-    "verify:ios": "xcodebuild -scheme CapgoCapacitorInappbrowser -destination generic/platform=iOS",
+    "verify:ios": "xcodebuild -scheme HecoEtAlCapacitorInappbrowser -destination generic/platform=iOS",
     "verify:android": "cd android && ./gradlew clean build test && cd ..",
     "verify:web": "bun run build && bun run test:web",
     "test:web": "bun test src/proxy-bridge-support.test.ts",

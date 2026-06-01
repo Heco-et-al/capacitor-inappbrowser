@@ -877,6 +877,26 @@ public class ProxySchemeHandler: NSObject, WKURLSchemeHandler, URLSessionTaskDel
             redirectContext = applyRequestOverride(requestOverride, to: redirectContext)
         }
 
+        let statusCode = pendingTask.responseData?.statusCode ?? 302
+        if redirectContext.isMainFrame && statusCode != 307 && statusCode != 308 {
+            let safeUrl = redirectContext.url.replacingOccurrences(of: "'", with: "\\'")
+            let html = "<!DOCTYPE html><html><head><script>window.location.replace('\(safeUrl)');</script></head><body></body></html>"
+            if let data = html.data(using: .utf8) {
+                let response = NativeResponseData(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Type": "text/html; charset=utf-8",
+                        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"
+                    ],
+                    body: data,
+                    contentType: "text/html"
+                )
+                pendingTask.requestContext = redirectContext
+                finish(task: pendingTask, with: response)
+                return
+            }
+        }
+
         pendingTask.requestContext = redirectContext
         pendingTask.responseData = nil
         pendingTask.redirectRequest = nil
@@ -1079,6 +1099,21 @@ public class ProxySchemeHandler: NSObject, WKURLSchemeHandler, URLSessionTaskDel
     }
 
     private func finish(task: PendingProxyTask, with responseData: NativeResponseData) {
+        if ProxySchemeHandler.redirectStatusCodes.contains(responseData.statusCode),
+           let locationUrlString = responseData.headers["Location"] ?? responseData.headers["location"] {
+            let baseURL = URL(string: task.requestContext.url)
+            if let locationUrl = URL(string: locationUrlString, relativeTo: baseURL) {
+                var request = URLRequest(url: locationUrl.absoluteURL)
+                let method = (responseData.statusCode == 307 || responseData.statusCode == 308) ? task.requestContext.method : "GET"
+                request.httpMethod = ProxySchemeRequestSupport.normalizedRequestMethod(method)
+                request.allHTTPHeaderFields = task.requestContext.headers
+                
+                task.redirectRequest = request
+                followPendingRedirect(requestId: task.requestId)
+                return
+            }
+        }
+
         completeSchemeTask(task) { schemeTask in
             guard let url = URL(string: task.requestContext.url),
                   let httpResponse = HTTPURLResponse(

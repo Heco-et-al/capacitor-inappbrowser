@@ -632,7 +632,7 @@ final class ProxyRequestSupport {
         return "same-origin";
     }
 
-    private static boolean isFollowableRedirectStatus(int statusCode) {
+    static boolean isFollowableRedirectStatus(int statusCode) {
         return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
     }
 

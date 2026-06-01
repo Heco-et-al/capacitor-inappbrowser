@@ -12,6 +12,29 @@ export interface UrlEvent {
    */
   url: string;
 }
+
+/**
+ * Event emitted when the managed webview intercepts a non-standard custom scheme
+ * and hands it to the operating system.
+ *
+ * Standard OS-handled schemes such as `tel:`, `mailto:`, and `sms:` are excluded.
+ *
+ * @since 8.6.7
+ */
+export interface CustomSchemeInterceptedEvent {
+  /**
+   * Webview instance id.
+   */
+  id?: string;
+  /**
+   * Intercepted URL.
+   */
+  url: string;
+  /**
+   * Whether the operating system accepted the URL handoff.
+   */
+  opened: boolean;
+}
 export interface BtnEvent {
   /**
    * Webview instance id.
@@ -28,6 +51,7 @@ export interface BtnEvent {
 export type UrlChangeListener = (state: UrlEvent) => void;
 export type ConfirmBtnListener = (state: BtnEvent) => void;
 export type ButtonNearListener = (state: object) => void;
+export type CustomSchemeInterceptedListener = (state: CustomSchemeInterceptedEvent) => void;
 
 export enum BackgroundColor {
   WHITE = 'white',
@@ -412,7 +436,7 @@ export interface OpenSecureWindowOptions {
   /**
    * If true, the browser session will be ephemeral (no cookies or browsing data are shared with the system browser).
    * On iOS, this sets `prefersEphemeralWebBrowserSession = true` on `ASWebAuthenticationSession`.
-   * On Android, ephemeral mode is always enabled via `FLAG_ACTIVITY_NO_HISTORY` regardless of this option.
+   * On Android, this enables Custom Tabs ephemeral browsing via `setEphemeralBrowsingEnabled(true)`.
    * @default false
    * @since 6.6.0
    */
@@ -1295,6 +1319,18 @@ export interface InAppBrowserPlugin {
   addListener(
     eventName: 'pageLoadError',
     listenerFunc: (event: { id?: string }) => void,
+  ): Promise<PluginListenerHandle>;
+  /**
+   * Will be triggered when the webview intercepts a non-standard custom scheme
+   * and hands it to the operating system.
+   *
+   * Standard OS-handled schemes such as `tel:`, `mailto:`, and `sms:` are excluded.
+   *
+   * @since 8.6.7
+   */
+  addListener(
+    eventName: 'customSchemeIntercepted',
+    listenerFunc: CustomSchemeInterceptedListener,
   ): Promise<PluginListenerHandle>;
   /**
    * Will be triggered after native download handling saves a file locally.

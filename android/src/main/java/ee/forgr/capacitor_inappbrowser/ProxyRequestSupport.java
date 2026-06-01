@@ -22,6 +22,9 @@ final class ProxyRequestSupport {
 
     record ParsedResponseHeaders(Map<String, String> responseHeaders, List<String> cookieHeaders) {}
 
+    static final int SYNTHETIC_NATIVE_FAILURE_STATUS = 599;
+    static final String SYNTHETIC_NATIVE_FAILURE_HEADER = "X-Capgo-Proxy-Error";
+
     private static final String[] SAFE_MARKER_HEADER_NAMES = {
         "Accept",
         "Accept-Encoding",
@@ -217,6 +220,18 @@ final class ProxyRequestSupport {
         }
     }
 
+    static boolean supportsWebResourceResponseStatus(int statusCode) {
+        return (statusCode >= 100 && statusCode <= 299) || (statusCode >= 400 && statusCode <= 599);
+    }
+
+    static boolean shouldFallbackToWebViewForUnsupportedStatus(boolean bridgeBackedRequest, int statusCode) {
+        return !bridgeBackedRequest && !supportsWebResourceResponseStatus(statusCode);
+    }
+
+    static boolean hasHeaderIgnoreCase(Map<String, String> headers, String expectedKey) {
+        return findHeaderKeyIgnoreCase(headers, expectedKey) != null;
+    }
+
     static String resolveRedirectMethod(String method, int statusCode) {
         String normalizedMethod = normalizeMethod(method);
         if ("HEAD".equals(normalizedMethod)) {
@@ -390,6 +405,16 @@ final class ProxyRequestSupport {
         return new WebResourceResponseMetadata(mimeType, encoding);
     }
 
+    static WebResourceResponseMetadata resolveWebResourceResponseConstructorMetadata(
+        String contentType,
+        Map<String, String> responseHeaders
+    ) {
+        if (hasHeaderIgnoreCase(responseHeaders, "Content-Type")) {
+            return new WebResourceResponseMetadata(null, null);
+        }
+        return resolveWebResourceResponseMetadata(contentType, responseHeaders);
+    }
+
     static ParsedResponseHeaders splitResponseHeaders(Map<String, List<String>> rawHeaders) {
         Map<String, String> responseHeaders = new HashMap<>();
         List<String> cookieHeaders = new java.util.ArrayList<>();
@@ -450,6 +475,31 @@ final class ProxyRequestSupport {
         }
 
         return new ParsedResponseHeaders(responseHeaders, cookieHeaders);
+    }
+
+    static String describeNativeRequestFailure(IOException error) {
+        if (error == null || error.getMessage() == null || error.getMessage().isBlank()) {
+            return "Native proxy request failed";
+        }
+        String sanitizedMessage = sanitizeHeaderValue(error.getMessage());
+        return sanitizedMessage.isBlank() ? "Native proxy request failed" : sanitizedMessage;
+    }
+
+    static Map<String, String> createNativeRequestFailureHeaders(IOException error) {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Cache-Control", "no-store");
+        headers.put("Content-Type", "text/plain; charset=utf-8");
+        headers.put(SYNTHETIC_NATIVE_FAILURE_HEADER, describeNativeRequestFailure(error));
+        return headers;
+    }
+
+    static byte[] createNativeRequestFailureBody(String requestUrl, IOException error) {
+        StringBuilder message = new StringBuilder("Native proxy request failed");
+        if (requestUrl != null && !requestUrl.isBlank()) {
+            message.append(" for ").append(requestUrl);
+        }
+        message.append(": ").append(describeNativeRequestFailure(error));
+        return message.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     static JSObject normalizeLegacySyntheticResponse(JSONObject legacyResponse) {
@@ -550,6 +600,25 @@ final class ProxyRequestSupport {
             return "GET";
         }
         return method.trim().toUpperCase(Locale.US);
+    }
+
+    private static String sanitizeHeaderValue(String value) {
+        StringBuilder sanitizedValue = new StringBuilder(value.length());
+        boolean previousWasSpace = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            boolean shouldReplaceWithSpace = character <= 31 || character == 127;
+            if (shouldReplaceWithSpace) {
+                if (!previousWasSpace) {
+                    sanitizedValue.append(' ');
+                    previousWasSpace = true;
+                }
+                continue;
+            }
+            sanitizedValue.append(character);
+            previousWasSpace = character == ' ';
+        }
+        return sanitizedValue.toString().trim();
     }
 
     private static String normalizeCredentialsMode(String credentialsMode) {

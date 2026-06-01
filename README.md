@@ -1,11 +1,6 @@
-# @capgo/inappbrowser
+# @capgo/capacitor-inappbrowser
 
-<a href="https://capgo.app/">
-  <img
-    src="https://raw.githubusercontent.com/Cap-go/capgo/main/assets/capgo_banner.png"
-    alt="Capgo - Instant updates for capacitor"
-  />
-</a>
+<a href="https://capgo.app/"><img src="https://capgo.app/readme-banner.svg?repo=Cap-go/capacitor-inappbrowser" alt="Capgo - Instant updates for Capacitor" /></a>
 
 <div align="center">
   <h2>
@@ -53,14 +48,14 @@ The most complete doc is available here: https://capgo.app/docs/plugins/inappbro
 ## Install
 
 ```bash
-npm install @capgo/inappbrowser
+npm install @capgo/capacitor-inappbrowser
 npx cap sync
 ```
 
 ## Usage
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 InAppBrowser.open({ url: 'YOUR_URL' });
 ```
@@ -70,7 +65,7 @@ InAppBrowser.open({ url: 'YOUR_URL' });
 The `open()` method launches a Chrome Custom Tab on Android. You can customize its appearance to blend with your app:
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 InAppBrowser.open({
   url: 'https://example.com',
@@ -91,7 +86,7 @@ All CCT options are Android-only and safely ignored on iOS. See [`OpenOptions`](
 By default, the webview opens in fullscreen. You can set custom dimensions to control the size and position:
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 // Open with custom dimensions (400x600 at position 50,100)
 const { id } = await InAppBrowser.openWebView({
@@ -120,7 +115,7 @@ This enables picture-in-picture style experiences where the InAppBrowser floats 
 To create a webView with a 20px bottom margin (safe margin area outside the browser):
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 InAppBrowser.openWebView({
   url: 'YOUR_URL',
@@ -135,7 +130,7 @@ Web platform is not supported. Use `window.open` instead.
 To open the webview in true full screen mode (content extends behind the status bar), set `enabledSafeTopMargin` to `false`:
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 InAppBrowser.openWebView({
   url: 'YOUR_URL',
@@ -169,7 +164,7 @@ Perfect for immersive experiences like video players, games, or full-screen web 
 Use a native rule when you just want to stop a request without round-tripping through JavaScript:
 
 ```js
-import { InAppBrowser } from '@capgo/inappbrowser';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 await InAppBrowser.openWebView({
   url: 'https://example.com',
@@ -187,7 +182,7 @@ await InAppBrowser.openWebView({
 Use `delegateToJs` when you want native matching, but still want JavaScript to replace the response:
 
 ```js
-import { InAppBrowser, addProxyHandler } from '@capgo/inappbrowser';
+import { InAppBrowser, addProxyHandler } from '@capgo/capacitor-inappbrowser';
 
 const proxyHandle = await addProxyHandler(async (request) => {
   if (request.phase === 'inbound' && request.url.includes('connect.facebook.net')) {
@@ -221,7 +216,7 @@ await proxyHandle.remove();
 When a request must be modified before it leaves the webview, return a `request` override:
 
 ```js
-import { InAppBrowser, addProxyHandler } from '@capgo/inappbrowser';
+import { InAppBrowser, addProxyHandler } from '@capgo/capacitor-inappbrowser';
 
 const proxyHandle = await addProxyHandler(async (request) => {
   if (request.phase === 'outbound' && request.url.includes('/api/private')) {
@@ -434,6 +429,7 @@ The W3C Payment Request API (used by Google Pay) requires Android WebView 120+. 
 * [`addListener('screenshotTaken', ...)`](#addlistenerscreenshottaken-)
 * [`addListener('browserPageLoaded', ...)`](#addlistenerbrowserpageloaded-)
 * [`addListener('pageLoadError', ...)`](#addlistenerpageloaderror-)
+* [`addListener('customSchemeIntercepted', ...)`](#addlistenercustomschemeintercepted-)
 * [`addListener('downloadCompleted', ...)`](#addlistenerdownloadcompleted-)
 * [`addListener('downloadFailed', ...)`](#addlistenerdownloadfailed-)
 * [`addListener('popupWindowOpened', ...)`](#addlistenerpopupwindowopened-)
@@ -873,6 +869,29 @@ Will be triggered when page load error
 | **`listenerFunc`** | <code>(event: { id?: string; }) =&gt; void</code> |
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('customSchemeIntercepted', ...)
+
+```typescript
+addListener(eventName: 'customSchemeIntercepted', listenerFunc: CustomSchemeInterceptedListener) => Promise<PluginListenerHandle>
+```
+
+Will be triggered when the webview intercepts a non-standard custom scheme
+and hands it to the operating system.
+
+Standard OS-handled schemes such as `tel:`, `mailto:`, and `sms:` are excluded.
+
+| Param              | Type                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| **`eventName`**    | <code>'customSchemeIntercepted'</code>                                                      |
+| **`listenerFunc`** | <code><a href="#customschemeinterceptedlistener">CustomSchemeInterceptedListener</a></code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+**Since:** 8.6.7
 
 --------------------
 
@@ -1331,6 +1350,20 @@ Any regex property that is omitted is treated as a wildcard.
 | **`url`** | <code>string</code> | Emit when a button is clicked. | 0.0.1 |
 
 
+#### CustomSchemeInterceptedEvent
+
+Event emitted when the managed webview intercepts a non-standard custom scheme
+and hands it to the operating system.
+
+Standard OS-handled schemes such as `tel:`, `mailto:`, and `sms:` are excluded.
+
+| Prop         | Type                 | Description                                            |
+| ------------ | -------------------- | ------------------------------------------------------ |
+| **`id`**     | <code>string</code>  | Webview instance id.                                   |
+| **`url`**    | <code>string</code>  | Intercepted URL.                                       |
+| **`opened`** | <code>boolean</code> | Whether the operating system accepted the URL handoff. |
+
+
 #### DownloadCompletedEvent
 
 Event emitted after a managed download is saved locally.
@@ -1465,12 +1498,12 @@ The body must be base64-encoded.
 
 #### OpenSecureWindowOptions
 
-| Prop                                    | Type                 | Description                                                                                                                                                                                                                                                                                                           | Default            | Since |
-| --------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----- |
-| **`authEndpoint`**                      | <code>string</code>  | The endpoint to open                                                                                                                                                                                                                                                                                                  |                    |       |
-| **`redirectUri`**                       | <code>string</code>  | The redirect URI to use for the openSecureWindow call. This will be checked to make sure it matches the redirect URI after the window finishes the redirection.                                                                                                                                                       |                    |       |
-| **`broadcastChannelName`**              | <code>string</code>  | The name of the broadcast channel to listen to, relevant only for web                                                                                                                                                                                                                                                 |                    |       |
-| **`prefersEphemeralWebBrowserSession`** | <code>boolean</code> | If true, the browser session will be ephemeral (no cookies or browsing data are shared with the system browser). On iOS, this sets `prefersEphemeralWebBrowserSession = true` on `ASWebAuthenticationSession`. On Android, ephemeral mode is always enabled via `FLAG_ACTIVITY_NO_HISTORY` regardless of this option. | <code>false</code> | 6.6.0 |
+| Prop                                    | Type                 | Description                                                                                                                                                                                                                                                                                                     | Default            | Since |
+| --------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ----- |
+| **`authEndpoint`**                      | <code>string</code>  | The endpoint to open                                                                                                                                                                                                                                                                                            |                    |       |
+| **`redirectUri`**                       | <code>string</code>  | The redirect URI to use for the openSecureWindow call. This will be checked to make sure it matches the redirect URI after the window finishes the redirection.                                                                                                                                                 |                    |       |
+| **`broadcastChannelName`**              | <code>string</code>  | The name of the broadcast channel to listen to, relevant only for web                                                                                                                                                                                                                                           |                    |       |
+| **`prefersEphemeralWebBrowserSession`** | <code>boolean</code> | If true, the browser session will be ephemeral (no cookies or browsing data are shared with the system browser). On iOS, this sets `prefersEphemeralWebBrowserSession = true` on `ASWebAuthenticationSession`. On Android, this enables Custom Tabs ephemeral browsing via `setEphemeralBrowsingEnabled(true)`. | <code>false</code> | 6.6.0 |
 
 
 ### Type Aliases
@@ -1527,6 +1560,11 @@ Construct a type with a set of properties K of type T
 #### ConfirmBtnListener
 
 <code>(state: <a href="#btnevent">BtnEvent</a>): void</code>
+
+
+#### CustomSchemeInterceptedListener
+
+<code>(state: <a href="#customschemeinterceptedevent">CustomSchemeInterceptedEvent</a>): void</code>
 
 
 #### DownloadHandledBy

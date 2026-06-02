@@ -420,13 +420,13 @@ public class ProxyRequestSupportTest {
     }
 
     @Test
-    public void resolveWebResourceResponseConstructorMetadataDefersToExistingContentTypeHeader() {
+    public void resolveWebResourceResponseConstructorMetadataParsesContentTypeHeader() {
         ProxyRequestSupport.WebResourceResponseMetadata metadata = ProxyRequestSupport.resolveWebResourceResponseConstructorMetadata(
             "multipart/mixed; boundary=fallback",
             Map.of("content-type", "multipart/mixed; boundary=someboundary")
         );
 
-        assertNull(metadata.mimeType());
+        assertEquals("multipart/mixed", metadata.mimeType());
         assertNull(metadata.encoding());
 
         ProxyRequestSupport.WebResourceResponseMetadata fallbackMetadata =

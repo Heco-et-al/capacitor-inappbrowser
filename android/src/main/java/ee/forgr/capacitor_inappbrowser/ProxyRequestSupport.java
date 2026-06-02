@@ -409,9 +409,6 @@ final class ProxyRequestSupport {
         String contentType,
         Map<String, String> responseHeaders
     ) {
-        if (hasHeaderIgnoreCase(responseHeaders, "Content-Type")) {
-            return new WebResourceResponseMetadata(null, null);
-        }
         return resolveWebResourceResponseMetadata(contentType, responseHeaders);
     }
 
